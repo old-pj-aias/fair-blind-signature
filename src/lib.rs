@@ -1,5 +1,7 @@
 extern crate rsa;
 
+extern crate num_bigint_dig as num_bigint;
+extern crate num_traits;
 
 use std::vec::Vec;
 
@@ -10,6 +12,7 @@ use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
 use rand::seq::SliceRandom;
 
+use num_bigint_dig::traits::ModInverse;
 
 const DEFALT_SIZE: usize = 256;
 
@@ -36,13 +39,25 @@ pub struct Unblinder {
 }
 
 #[derive(Clone)]
-pub struct EncryptedTraceInfo {
+pub struct EncryptedMessage {
     u: Vec<String>
+}
+
+#[derive(Clone)]
+pub struct EncryptedID {
+    v: Vec<String>
 }
 
 #[derive(Clone)]
 pub struct BlindSignature {
     b: BigUint
+}
+
+#[derive(Clone)]
+pub struct Signature {
+    s: BigUint,
+    alpha: String,
+    encrypted_message: EncryptedMessage
 }
 
 #[derive(Clone)]
@@ -53,12 +68,14 @@ pub struct FBSParameters<EJ: EJPubKey> {
     id: u32
 }
 
+#[derive(Clone)]
 pub struct FBSSender<EJ: EJPubKey> {
     parameters: FBSParameters<EJ>,
     random_strings: Option<RandomStrings>,
     blinded_digest: Option<BlindedDigest>,
     unblinder: Option<Unblinder>,
-    trace_info: Option<EncryptedTraceInfo>,
+    encrypted_message: Option<EncryptedMessage>,
+    encrypted_id:  Option<EncryptedID>,
     subset: Option<Subset>
 }
 
@@ -68,12 +85,14 @@ pub struct Subset {
     complement: Vec<u32>
 }
 
+#[derive(Clone)]
 pub struct CheckParameter {
-    part_of_trace_info: EncryptedTraceInfo,
+    part_of_encrypted_message: EncryptedMessage,
     part_of_unblinder: Unblinder,
     part_of_beta: Vec<u8>
 }
 
+#[derive(Clone)]
 pub struct FBSSigner<EJ: EJPubKey> {
     parameters: FBSParameters<EJ>,
     blinded_digest: Option<BlindedDigest>,
@@ -149,7 +168,7 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
 
             let r_e_i = check_parameter.part_of_unblinder.r[subset_index].modpow(self.parameters.signer_pubkey.e(), self.parameters.signer_pubkey.n());
 
-            let h_i = format!("{}{}", check_parameter.part_of_trace_info.u[subset_index], v_i);
+            let h_i = format!("{}{}", check_parameter.part_of_encrypted_message.u[subset_index], v_i);
 
             let mut hasher = Sha256::new();
             hasher.update(h_i);
@@ -182,7 +201,6 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
 
         blind_signature.b = blind_signature.b.modpow(self.privkey.d(), self.parameters.signer_pubkey.n());
 
-
         return Some(blind_signature);
     }
 }
@@ -203,12 +221,13 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
             random_strings: random_strings,
             blinded_digest: None,
             unblinder: None,
-            trace_info: None,
+            encrypted_message: None,
+            encrypted_id: None,
             subset: None
         }
     }
 
-    pub fn blind(&mut self, message: String) -> Option<(BlindedDigest, Unblinder, EncryptedTraceInfo)> {
+    pub fn blind(&mut self, message: String) -> Option<(BlindedDigest, Unblinder, EncryptedMessage, EncryptedID)> {
         let mut r = Vec::new();
         let mut u = Vec::new();
         let mut v = Vec::new();
@@ -248,13 +267,15 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
 
         let blinded_digest = BlindedDigest { m: m };
         let unblinder = Unblinder { r: r };
-        let trace_info = EncryptedTraceInfo { u: u };
+        let encrypted_message = EncryptedMessage { u: u };
+        let encrypted_id = EncryptedID { v: v };
 
         self.blinded_digest = Some(blinded_digest.clone());
         self.unblinder = Some(unblinder.clone());
-        self.trace_info = Some(trace_info.clone());
+        self.encrypted_message = Some(encrypted_message.clone());
+        self.encrypted_id = Some(encrypted_id.clone());
 
-        return Some((blinded_digest, unblinder, trace_info))
+        Some((blinded_digest, unblinder, encrypted_message, encrypted_id))
     }
 
     pub fn set_subset(&mut self, subset: Subset) {
@@ -266,12 +287,13 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         let mut r = Vec::new();
         let mut beta = Vec::new();
 
-        let all_u = self.trace_info?.u;
+        let all_u = self.encrypted_message?.u;
         let all_r = self.unblinder?.r;
 
         let beta_bytes = self.random_strings.as_ref()?.beta.as_bytes();
 
         for i in self.subset?.subset {
+            // todo: fix
             let i = i as usize;
 
             let u_i = all_u[i].clone();
@@ -284,9 +306,41 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         }
 
         Some(CheckParameter {
-            part_of_trace_info: EncryptedTraceInfo { u: u },
+            part_of_encrypted_message: EncryptedMessage { u: u },
             part_of_unblinder: Unblinder { r: r },
             part_of_beta: beta
+        })
+    }
+
+    pub fn unblind(self, blind_signature: BlindSignature) -> Option<Signature> {
+        let b = blind_signature.b.clone();
+        let mut r = BigUint::from(1 as u32);
+
+        for complement_index in 0..self.subset.clone()?.complement.len() {
+            let complement_index = complement_index as usize;
+            let all_index = self.subset.clone()?.subset[complement_index] as usize;
+            
+            let r_i = self.unblinder.clone()?.r[all_index].clone();
+
+            r *= r_i.clone();
+            r %= self.parameters.signer_pubkey.n();
+        }
+
+        let biguint_r = num_bigint::BigUint::from_bytes_le(&r.to_bytes_le());
+
+        let biguint_n = self.parameters.signer_pubkey.n().to_bytes_le();
+        let biguint_n = num_bigint::BigUint::from_bytes_le(&biguint_n);
+
+        let r_inverse = biguint_r.mod_inverse(biguint_n)?;
+        let (_, r_inverse) = &r_inverse.to_bytes_le();
+
+        let r_inverse = BigUint::from_bytes_le(r_inverse);
+        let s = (b * r_inverse) % self.parameters.signer_pubkey.n();
+
+        Some(Signature {
+            s: s,
+            alpha: self.random_strings?.alpha,
+            encrypted_message: self.encrypted_message?,
         })
     }
 }
@@ -324,10 +378,10 @@ impl EJPubKey for TestCipherPubkey {
 
 #[test]
 fn test_signer_blind() {
-    let n = BigUint::from(187 as u32);
-    let e = BigUint::from(7 as u32);
-    let d = BigUint::from(23 as u32);
-    let primes = [BigUint::from(7 as u32), BigUint::from(11 as u32)].to_vec();
+    let n = BigUint::from(41623 as u32);
+    let e = BigUint::from(11751 as u32);
+    let d = BigUint::from(7393 as u32);
+    let primes = [BigUint::from(107 as u32), BigUint::from(389 as u32)].to_vec();
     
     let signer_pubkey = RSAPublicKey::new(n.clone(), e.clone()).unwrap();
     let judge_pubkey = TestCipherPubkey {};
@@ -376,11 +430,14 @@ fn test_signer_blind() {
     println!("complement: {:?}", subset.complement);
 
     sender.set_subset(subset);
-    let check_parameter = sender.generate_check_parameter().unwrap();
+    let check_parameter = sender.clone().generate_check_parameter().unwrap();
 
     let result = signer.check(check_parameter).unwrap();
     assert_eq!(result, true);
 
     let sign = signer.sign().unwrap();
+    let signature = sender.clone().unblind(sign).unwrap();
+
+    println!("s: {}", signature.s);
 }
 
