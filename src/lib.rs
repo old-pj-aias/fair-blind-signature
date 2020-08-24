@@ -1,11 +1,15 @@
 extern crate rsa;
+extern crate rand;
 
 extern crate num_bigint_dig as num_bigint;
 extern crate num_traits;
 
+use rand::rngs::OsRng;
+
+
+use rsa::{BigUint, PublicKey, RSAPrivateKey, RSAPublicKey, PaddingScheme, PublicKeyParts};
 use std::vec::Vec;
 
-use rsa::{BigUint, RSAPublicKey, PublicKey, RSAPrivateKey};
 use sha2::{Sha256, Digest};
 
 use rand::{thread_rng, Rng};
@@ -490,4 +494,3 @@ fn test_all() {
 
     assert_eq!(result, true);
 }
-
