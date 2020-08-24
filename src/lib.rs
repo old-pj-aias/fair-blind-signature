@@ -494,3 +494,72 @@ fn test_all() {
 
     assert_eq!(result, true);
 }
+
+
+#[test]
+fn test_speed() {
+    let mut rng = OsRng;
+    let bits = 2048;
+    let signer_privkey = RSAPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
+    let signer_pubkey = RSAPublicKey::from(&signer_privkey);
+
+    let judge_pubkey = TestCipherPubkey {};
+
+    let parameters = FBSParameters {
+        signer_pubkey: signer_pubkey,
+        judge_pubkey: judge_pubkey,
+        k: 40,
+        id: 10
+    };
+
+    let mut sender = FBSSender::new(parameters.clone());
+    assert_eq!(sender.parameters.id, 10);
+    assert_eq!(sender.parameters.k, 40);
+
+
+    let random_strings = match sender.random_strings.clone() {
+        Some(random_strings) => random_strings,
+        None => {
+            assert_eq!(true, false);
+            return;
+        }
+    };
+
+    println!("alpha: {}\nbeta: {}\n\n", random_strings.alpha, random_strings.beta);
+
+    let blinded = sender.blind("hello".to_string());
+    let result = match blinded.clone() {
+        Some(_) => true,
+        None => false
+    };
+
+    assert_eq!(result, true);
+
+    let mut signer = FBSSigner::new(parameters.clone(), signer_privkey);
+
+    assert_eq!(sender.parameters.id, parameters.id);
+    assert_eq!(sender.parameters.k, parameters.k);
+
+    signer.set_blinded_digest(sender.blinded_digest.clone().unwrap());
+
+    let subset = signer.setup_subset();
+    println!("subset: {:?}", subset.subset);
+    println!("complement: {:?}", subset.complement);
+
+    sender.set_subset(subset);
+    let check_parameter = sender.clone().generate_check_parameter().unwrap();
+
+    let result = signer.check(check_parameter).unwrap();
+    assert_eq!(result, true);
+
+    let sign = signer.sign().unwrap();
+    let signature = sender.clone().unblind(sign).unwrap();
+
+    println!("s: {}", signature.s);
+    
+    let verifyer = FBSVerifyer::new(parameters);
+    let result = verifyer.verify(signature, "hello".to_string()).unwrap();
+
+    assert_eq!(result, true);
+}
+
