@@ -17,6 +17,7 @@ pub trait EJPubKey {
     fn dencrypt(&self, message: String) -> String;
 }
 
+#[derive(Clone)]
 pub struct RandomStrings {
     alpha: String,
     beta: String
@@ -87,6 +88,59 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
             id: id
         }
     }
+
+    pub fn blind(&mut self, message: String) -> Option<(BlindedDigest, Unblinder, EncryptedTraceInfo)> {
+        let mut r = Vec::new();
+        let mut u = Vec::new();
+        let mut v = Vec::new();
+        let mut m = Vec::new();
+
+        let len = 2 * self.parameters.k;
+
+        for i in 0..len {
+            let r_i = generate_random_ubigint(DEFALT_SIZE);
+            
+            let u_i = format!("{}{}", message, self.random_strings.as_ref()?.alpha.as_bytes()[i as usize]);
+            let u_i = self.parameters.judge_pubkey.encrypt(u_i);
+            
+            let v_i = format!("{}{}", self.id, self.random_strings.as_ref()?.beta.as_bytes()[i as usize]);
+            let v_i = self.parameters.judge_pubkey.encrypt(v_i);
+
+            let r_e_i = r_i.modpow(self.parameters.signer_pubkey.e(), self.parameters.signer_pubkey.n());
+
+            let h_i = format!("{}{}", u_i, v_i);
+
+            let mut hasher = Sha256::new();
+            hasher.update(h_i);
+            let h_i = hasher.finalize();
+            let h_i = BigUint::from_bytes_le(&h_i);
+
+            let m_i = r_e_i * h_i % self.parameters.signer_pubkey.n();
+
+            r.push(r_i);
+            u.push(u_i);
+            v.push(v_i);
+            m.push(m_i);
+        }
+
+        let blinded_digest = BlindedDigest {
+            m: m
+        };
+
+        let unblinder = Unblinder {
+            r: r
+        };
+        
+        let trace_info = EncryptedTraceInfo {
+            u: u
+        };
+
+        self.blinded_digest = Some(blinded_digest.clone());
+        self.unblinder = Some(unblinder.clone());
+        self.trace_info = Some(trace_info.clone());
+
+        return Some((blinded_digest, unblinder, trace_info))
+    }
 }
 
 #[test]
@@ -120,7 +174,7 @@ impl EJPubKey for TestCipherPubkey {
 
 
 #[test]
-fn test_signer_new() {
+fn test_signer_blind() {
     let n = BigUint::from(187 as u32);
     let e = BigUint::from(7 as u32);
     
@@ -133,10 +187,10 @@ fn test_signer_new() {
         k: 40
     };
 
-    let sender = FBSSender::new(10, parameters);
+    let mut sender = FBSSender::new(10, parameters);
     assert_eq!(sender.id, 10);
 
-    let random_strings = match sender.random_strings {
+    let random_strings = match sender.random_strings.clone() {
         Some(random_strings) => random_strings,
         None => {
             assert_eq!(true, false);
@@ -146,4 +200,13 @@ fn test_signer_new() {
 
 
     println!("alpha: {}\nbeta: {}\n\n", random_strings.alpha, random_strings.beta);
+
+    let blinded = sender.blind("hello".to_string());
+    let result = match blinded.clone() {
+        Some(_) => true,
+        None => false
+    };
+
+    assert_eq!(result, true);
 }
+
