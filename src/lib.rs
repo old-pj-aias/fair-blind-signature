@@ -195,7 +195,7 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
         let one = BigUint::from(1 as u32);
         let mut blind_signature = BlindSignature { b: one };
 
-        for complement_index in 0..self.subset.clone()?.complement.len() {
+        for complement_index in 0..self.subset.clone()?.complement.len() - 1{
             let complement_index = complement_index as usize;
             let all_index = self.subset.clone()?.subset[complement_index] as usize;
 
@@ -321,7 +321,7 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         let b = blind_signature.b.clone();
         let mut r = BigUint::from(1 as u32);
 
-        for complement_index in 0..self.subset.clone()?.complement.len() {
+        for complement_index in 0..self.subset.clone()?.complement.len() - 1{
             let complement_index = complement_index as usize;
             let all_index = self.subset.clone()?.subset[complement_index] as usize;
             
@@ -367,7 +367,7 @@ impl <EJ: EJPubKey>FBSVerifyer<EJ>{
 
         let mut s = BigUint::from(1 as u32);
 
-        for complement_index in 0..signature.subset.complement.len() {
+        for complement_index in 0..signature.subset.complement.len() - 1 {
             let complement_index = complement_index as usize;
             let all_index = signature.subset.subset[complement_index] as usize;
             
