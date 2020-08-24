@@ -41,7 +41,8 @@ pub struct EncryptedTraceInfo {
 pub struct FBSParameters<EJ: EJPubKey> {
     judge_pubkey: EJ,
     signer_pubkey: RSAPublicKey,
-    k: u32
+    k: u32,
+    id: u32
 }
 
 pub struct FBSSender<EJ: EJPubKey> {
@@ -50,8 +51,8 @@ pub struct FBSSender<EJ: EJPubKey> {
     blinded_digest: Option<BlindedDigest>,
     unblinder: Option<Unblinder>,
     trace_info: Option<EncryptedTraceInfo>,
-    id: u32
 }
+
 
 fn generate_random_ubigint(size: usize) -> BigUint {
     let size = size / 32; 
@@ -68,9 +69,8 @@ fn generate_random_string(len: usize) -> String {
 
 
 impl <EJ: EJPubKey>FBSSender<EJ> {
-    pub fn new(id: u32, parameters: FBSParameters<EJ>) -> FBSSender<EJ>{
+    pub fn new(parameters: FBSParameters<EJ>) -> FBSSender<EJ>{
         let parameters = parameters;
-        let id = id;
 
         let len = 2 * parameters.k;
 
@@ -85,7 +85,6 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
             blinded_digest: None,
             unblinder: None,
             trace_info: None,
-            id: id
         }
     }
 
@@ -96,14 +95,17 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         let mut m = Vec::new();
 
         let len = 2 * self.parameters.k;
+        let alpha = self.random_strings.as_ref()?.alpha.as_bytes();
+        let beta = self.random_strings.as_ref()?.beta.as_bytes();
+
 
         for i in 0..len {
             let r_i = generate_random_ubigint(DEFALT_SIZE);
             
-            let u_i = format!("{}{}", message, self.random_strings.as_ref()?.alpha.as_bytes()[i as usize]);
+            let u_i = format!("{}{}", message, alpha[i as usize]);
             let u_i = self.parameters.judge_pubkey.encrypt(u_i);
             
-            let v_i = format!("{}{}", self.id, self.random_strings.as_ref()?.beta.as_bytes()[i as usize]);
+            let v_i = format!("{}{}", self.parameters.id, beta[i as usize]);
             let v_i = self.parameters.judge_pubkey.encrypt(v_i);
 
             let r_e_i = r_i.modpow(self.parameters.signer_pubkey.e(), self.parameters.signer_pubkey.n());
@@ -123,17 +125,11 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
             m.push(m_i);
         }
 
-        let blinded_digest = BlindedDigest {
-            m: m
-        };
+        let blinded_digest = BlindedDigest { m: m };
 
-        let unblinder = Unblinder {
-            r: r
-        };
+        let unblinder = Unblinder { r: r };
         
-        let trace_info = EncryptedTraceInfo {
-            u: u
-        };
+        let trace_info = EncryptedTraceInfo { u: u };
 
         self.blinded_digest = Some(blinded_digest.clone());
         self.unblinder = Some(unblinder.clone());
@@ -184,11 +180,14 @@ fn test_signer_blind() {
     let parameters = FBSParameters {
         signer_pubkey: signer_pubkey,
         judge_pubkey: judge_pubkey,
-        k: 40
+        k: 40,
+        id: 10
     };
 
-    let mut sender = FBSSender::new(10, parameters);
-    assert_eq!(sender.id, 10);
+    let mut sender = FBSSender::new(parameters);
+    assert_eq!(sender.parameters.id, 10);
+    assert_eq!(sender.parameters.k, 40);
+
 
     let random_strings = match sender.random_strings.clone() {
         Some(random_strings) => random_strings,
