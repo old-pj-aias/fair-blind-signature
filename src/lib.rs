@@ -65,6 +65,30 @@ fn generate_random_string(len: usize) -> String {
         .collect();
 }
 
+
+impl <EJ: EJPubKey>FBSSender<EJ> {
+    pub fn new(id: u32, parameters: FBSParameters<EJ>) -> FBSSender<EJ>{
+        let parameters = parameters;
+        let id = id;
+
+        let len = 2 * parameters.k;
+
+        let random_strings = Some(RandomStrings {
+            alpha: generate_random_string(len as usize),
+            beta:  generate_random_string(len as usize)
+        });
+
+        FBSSender { 
+            parameters: parameters,
+            random_strings: random_strings,
+            blinded_digest: None,
+            unblinder: None,
+            trace_info: None,
+            id: id
+        }
+    }
+}
+
 #[test]
 fn test_generate_random_ubigint() {
     for i in 1..20 {
@@ -82,3 +106,44 @@ fn test_generate_random_string() {
     }
 }
 
+struct TestCipherPubkey {}
+
+impl EJPubKey for TestCipherPubkey {
+    fn encrypt(&self, message: String) -> String {
+        return message;
+    }
+
+    fn dencrypt(&self, message: String) -> String {
+        return message;
+    }
+}
+
+
+#[test]
+fn test_signer_new() {
+    let n = BigUint::from(187 as u32);
+    let e = BigUint::from(7 as u32);
+    
+    let signer_pubkey = RSAPublicKey::new(n, e).unwrap();
+    let judge_pubkey = TestCipherPubkey {};
+
+    let parameters = FBSParameters {
+        signer_pubkey: signer_pubkey,
+        judge_pubkey: judge_pubkey,
+        k: 40
+    };
+
+    let sender = FBSSender::new(10, parameters);
+    assert_eq!(sender.id, 10);
+
+    let random_strings = match sender.random_strings {
+        Some(random_strings) => random_strings,
+        None => {
+            assert_eq!(true, false);
+            return;
+        }
+    };
+
+
+    println!("alpha: {}\nbeta: {}\n\n", random_strings.alpha, random_strings.beta);
+}
