@@ -8,6 +8,8 @@ use sha2::{Sha256, Digest};
 
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
+use rand::seq::SliceRandom;
+
 
 const DEFALT_SIZE: usize = 256;
 
@@ -54,9 +56,10 @@ pub struct FBSSender<EJ: EJPubKey> {
     trace_info: Option<EncryptedTraceInfo>,
 }
 
+#[derive(Clone)]
 pub struct Subset {
     subset: Vec<u32>,
-    k: u32
+    complement: Vec<u32>
 }
 
 pub struct CheckParameter {
@@ -96,6 +99,34 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
             subset: None,
             privkey: privkey
         }
+    }
+
+    pub fn setup_subset(&mut self) -> Subset { 
+        let mut all : Vec<u32> = (1..(2 * self.parameters.k)).map(|x: u32| x).collect();
+
+        let mut complement = Vec::new();
+
+        let mut rng = thread_rng();
+        let mut subset : Vec<u32> = all.choose_multiple(&mut rng, self.parameters.k as usize).cloned().collect();
+        subset.sort();
+
+        for i in all.clone() {
+            match subset.binary_search(&i) {
+                Ok(_) => {}
+                Err(_) => {
+                    complement.push(i);
+                }
+            };
+        }
+
+        let subset = Subset {
+            complement: complement,
+            subset: subset
+        };
+
+        self.subset = Some(subset.clone());
+        
+        subset
     }
 }
 
@@ -241,9 +272,13 @@ fn test_signer_blind() {
     assert_eq!(result, true);
 
     let signer_privkey = RSAPrivateKey::from_components(n, e, d, primes);
-    let sender = FBSSigner::new(parameters.clone(), signer_privkey);
+    let mut sender = FBSSigner::new(parameters.clone(), signer_privkey);
 
     assert_eq!(sender.parameters.id, parameters.id);
     assert_eq!(sender.parameters.k, parameters.k);
+
+    let subset = sender.setup_subset();
+    println!("subset: {:?}", subset.subset);
+    println!("complement: {:?}", subset.complement);
 }
 
