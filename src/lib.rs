@@ -54,6 +54,7 @@ pub struct FBSSender<EJ: EJPubKey> {
     blinded_digest: Option<BlindedDigest>,
     unblinder: Option<Unblinder>,
     trace_info: Option<EncryptedTraceInfo>,
+    subset: Option<Subset>
 }
 
 #[derive(Clone)]
@@ -65,7 +66,7 @@ pub struct Subset {
 pub struct CheckParameter {
     part_of_trace_info: EncryptedTraceInfo,
     part_of_unblinder: Unblinder,
-    part_of_beta: Vec<String>
+    part_of_beta: Vec<u8>
 }
 
 pub struct FBSSigner<EJ: EJPubKey> {
@@ -151,6 +152,7 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
             blinded_digest: None,
             unblinder: None,
             trace_info: None,
+            subset: None
         }
     }
 
@@ -200,6 +202,39 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         self.trace_info = Some(trace_info.clone());
 
         return Some((blinded_digest, unblinder, trace_info))
+    }
+
+    pub fn set_subset(&mut self, subset: Subset) {
+        self.subset = Some(subset);
+    }
+
+    pub fn generate_check_parameter(self) -> Option<CheckParameter>{
+        let mut u = Vec::new();
+        let mut r = Vec::new();
+        let mut beta = Vec::new();
+
+        let all_u = self.trace_info?.u;
+        let all_r = self.unblinder?.r;
+
+        let beta_bytes = self.random_strings.as_ref()?.beta.as_bytes();
+
+        for i in self.subset?.subset {
+            let i = i as usize;
+
+            let u_i = all_u[i].clone();
+            let r_i = all_r[i].clone();
+            let beta_i = beta_bytes[i].clone();
+
+            u.push(u_i);
+            r.push(r_i);
+            beta.push(beta_i);
+        }
+
+        Some(CheckParameter {
+            part_of_trace_info: EncryptedTraceInfo { u: u },
+            part_of_unblinder: Unblinder { r: r },
+            part_of_beta: beta
+        })
     }
 }
 
