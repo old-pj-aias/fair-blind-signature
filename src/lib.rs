@@ -423,10 +423,10 @@ impl EJPubKey for TestCipherPubkey {
 
 #[test]
 fn test_signer_sign() {
-    let n = BigUint::from(323 as u32);
+    let n = BigUint::from(882323119 as u32);
     let e = BigUint::from(7 as u32);
-    let d = BigUint::from(247 as u32);
-    let primes = [BigUint::from(19 as u32), BigUint::from(17 as u32)].to_vec();
+    let d = BigUint::from(504150583 as u32);
+    let primes = [BigUint::from(27409 as u32), BigUint::from(32191 as u32)].to_vec();
     
     let signer_pubkey = RSAPublicKey::new(n.clone(), e.clone()).unwrap();
     let judge_pubkey = TestCipherPubkey {};
@@ -434,13 +434,13 @@ fn test_signer_sign() {
     let parameters = FBSParameters {
         signer_pubkey: signer_pubkey,
         judge_pubkey: judge_pubkey,
-        k: 4,
+        k: 40,
         id: 10
     };
 
     let mut sender = FBSSender::new(parameters.clone());
     assert_eq!(sender.parameters.id, 10);
-    assert_eq!(sender.parameters.k, 4);
+    assert_eq!(sender.parameters.k, 40);
 
 
     let random_strings = match sender.random_strings.clone() {
