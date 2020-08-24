@@ -3,7 +3,7 @@ extern crate rsa;
 
 use std::vec::Vec;
 
-use rsa::{BigUint, RSAPublicKey, PublicKey};
+use rsa::{BigUint, RSAPublicKey, PublicKey, RSAPrivateKey};
 use sha2::{Sha256, Digest};
 
 use rand::{thread_rng, Rng};
@@ -53,6 +53,24 @@ pub struct FBSSender<EJ: EJPubKey> {
     trace_info: Option<EncryptedTraceInfo>,
 }
 
+pub struct Subset {
+    subset: Vec<u32>,
+    k: u32
+}
+
+pub struct CheckParameter {
+    part_of_trace_info: EncryptedTraceInfo,
+    part_of_unblinder: Unblinder,
+    part_of_beta: Vec<String>
+}
+
+pub struct FBSSigner<EJ: EJPubKey> {
+    blinded_digest: BlindedDigest,
+    parameters: FBSParameters<EJ>,
+    subset: Option<Subset>,
+    check: Option<CheckParameter>,
+    privatekey: RSAPrivateKey
+}
 
 fn generate_random_ubigint(size: usize) -> BigUint {
     let size = size / 32; 
@@ -126,9 +144,7 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         }
 
         let blinded_digest = BlindedDigest { m: m };
-
         let unblinder = Unblinder { r: r };
-        
         let trace_info = EncryptedTraceInfo { u: u };
 
         self.blinded_digest = Some(blinded_digest.clone());
