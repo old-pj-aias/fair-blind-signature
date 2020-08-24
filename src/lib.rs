@@ -38,6 +38,7 @@ pub struct EncryptedTraceInfo {
     u: Vec<String>
 }
 
+#[derive(Clone)]
 pub struct FBSParameters<EJ: EJPubKey> {
     judge_pubkey: EJ,
     signer_pubkey: RSAPublicKey,
@@ -65,11 +66,11 @@ pub struct CheckParameter {
 }
 
 pub struct FBSSigner<EJ: EJPubKey> {
-    blinded_digest: BlindedDigest,
     parameters: FBSParameters<EJ>,
+    blinded_digest: Option<BlindedDigest>,
     subset: Option<Subset>,
     check: Option<CheckParameter>,
-    privatekey: RSAPrivateKey
+    privkey: RSAPrivateKey
 }
 
 fn generate_random_ubigint(size: usize) -> BigUint {
@@ -85,6 +86,18 @@ fn generate_random_string(len: usize) -> String {
         .collect();
 }
 
+
+impl <EJ: EJPubKey>FBSSigner<EJ> {
+    pub fn new(parameters: FBSParameters<EJ>, privkey: RSAPrivateKey) -> FBSSigner<EJ>{
+        FBSSigner { 
+            parameters: parameters,
+            blinded_digest: None,
+            check: None,
+            subset: None,
+            privkey: privkey
+        }
+    }
+}
 
 impl <EJ: EJPubKey>FBSSender<EJ> {
     pub fn new(parameters: FBSParameters<EJ>) -> FBSSender<EJ>{
@@ -172,6 +185,7 @@ fn test_generate_random_string() {
     }
 }
 
+#[derive(Clone)]
 struct TestCipherPubkey {}
 
 impl EJPubKey for TestCipherPubkey {
@@ -189,8 +203,10 @@ impl EJPubKey for TestCipherPubkey {
 fn test_signer_blind() {
     let n = BigUint::from(187 as u32);
     let e = BigUint::from(7 as u32);
+    let d = BigUint::from(23 as u32);
+    let primes = [BigUint::from(7 as u32), BigUint::from(11 as u32)].to_vec();
     
-    let signer_pubkey = RSAPublicKey::new(n, e).unwrap();
+    let signer_pubkey = RSAPublicKey::new(n.clone(), e.clone()).unwrap();
     let judge_pubkey = TestCipherPubkey {};
 
     let parameters = FBSParameters {
@@ -200,7 +216,7 @@ fn test_signer_blind() {
         id: 10
     };
 
-    let mut sender = FBSSender::new(parameters);
+    let mut sender = FBSSender::new(parameters.clone());
     assert_eq!(sender.parameters.id, 10);
     assert_eq!(sender.parameters.k, 40);
 
@@ -223,5 +239,11 @@ fn test_signer_blind() {
     };
 
     assert_eq!(result, true);
+
+    let signer_privkey = RSAPrivateKey::from_components(n, e, d, primes);
+    let sender = FBSSigner::new(parameters.clone(), signer_privkey);
+
+    assert_eq!(sender.parameters.id, parameters.id);
+    assert_eq!(sender.parameters.k, parameters.k);
 }
 
