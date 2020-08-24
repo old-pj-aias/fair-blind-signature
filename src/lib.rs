@@ -133,13 +133,40 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
     pub fn set_blinded_digest(&mut self, blinded_digest: BlindedDigest) {
         self.blinded_digest = Some(blinded_digest);
     }
+
+    pub fn check(&self, check_parameter: CheckParameter) -> Option<bool> {
+        for subset_index in 0..self.subset.clone()?.subset.len() {
+            let subset_index = subset_index as usize;
+            let all_index = self.subset.clone()?.subset[subset_index] as usize;
+
+            let v_i = format!("{}{}", self.parameters.id, check_parameter.part_of_beta[subset_index]);
+            let v_i = self.parameters.judge_pubkey.encrypt(v_i);
+
+            let r_e_i = check_parameter.part_of_unblinder.r[subset_index].modpow(self.parameters.signer_pubkey.e(), self.parameters.signer_pubkey.n());
+
+            let h_i = format!("{}{}", check_parameter.part_of_trace_info.u[subset_index], v_i);
+
+            let mut hasher = Sha256::new();
+            hasher.update(h_i);
+            let h_i = hasher.finalize();
+            let h_i = BigUint::from_bytes_le(&h_i);
+
+            let m_i = r_e_i * h_i % self.parameters.signer_pubkey.n();
+            
+            if m_i != self.blinded_digest.clone()?.m[all_index] {
+                return Some(false);
+            }
+        }
+
+        return Some(true);
+    }
 }
 
 impl <EJ: EJPubKey>FBSSender<EJ> {
     pub fn new(parameters: FBSParameters<EJ>) -> FBSSender<EJ>{
         let parameters = parameters;
 
-        let len = 2 * parameters.k;
+        let len = 2 * parameters.k * 8;
 
         let random_strings = Some(RandomStrings {
             alpha: generate_random_string(len as usize),
@@ -172,9 +199,10 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
             
             let u_i = format!("{}{}", message, alpha[i as usize]);
             let u_i = self.parameters.judge_pubkey.encrypt(u_i);
-            
+
             let v_i = format!("{}{}", self.parameters.id, beta[i as usize]);
             let v_i = self.parameters.judge_pubkey.encrypt(v_i);
+
 
             let r_e_i = r_i.modpow(self.parameters.signer_pubkey.e(), self.parameters.signer_pubkey.n());
 
@@ -311,13 +339,21 @@ fn test_signer_blind() {
     assert_eq!(result, true);
 
     let signer_privkey = RSAPrivateKey::from_components(n, e, d, primes);
-    let mut sender = FBSSigner::new(parameters.clone(), signer_privkey);
+    let mut signer = FBSSigner::new(parameters.clone(), signer_privkey);
 
     assert_eq!(sender.parameters.id, parameters.id);
     assert_eq!(sender.parameters.k, parameters.k);
 
-    let subset = sender.setup_subset();
+    signer.set_blinded_digest(sender.blinded_digest.clone().unwrap());
+
+    let subset = signer.setup_subset();
     println!("subset: {:?}", subset.subset);
     println!("complement: {:?}", subset.complement);
+
+    sender.set_subset(subset);
+    let check_parameter = sender.generate_check_parameter().unwrap();
+
+    let result = signer.check(check_parameter).unwrap();
+    assert_eq!(result, true);
 }
 
