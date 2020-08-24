@@ -165,7 +165,7 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
     }
 
     pub fn check(&self, check_parameter: CheckParameter) -> Option<bool> {
-        for subset_index in 0..self.subset.clone()?.subset.len() {
+        for subset_index in 0..self.subset.clone()?.subset.len() - 1{
             let subset_index = subset_index as usize;
             let all_index = self.subset.clone()?.subset[subset_index] as usize;
 
@@ -297,13 +297,13 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
 
         let beta_bytes = self.random_strings.as_ref()?.beta.as_bytes();
 
-        for i in self.subset?.subset {
-            // todo: fix
-            let i = i as usize;
+        for complement_index in 0..self.subset.clone()?.complement.len() - 1 {
+            let complement_index = complement_index as usize;
+            let all_index = self.subset.clone()?.subset[complement_index] as usize;
 
-            let u_i = all_u[i].clone();
-            let r_i = all_r[i].clone();
-            let beta_i = beta_bytes[i].clone();
+            let u_i = all_u[all_index].clone();
+            let r_i = all_r[all_index].clone();
+            let beta_i = beta_bytes[all_index].clone();
 
             u.push(u_i);
             r.push(r_i);
@@ -391,22 +391,22 @@ impl <EJ: EJPubKey>FBSVerifyer<EJ>{
     }
 }
 
-// #[test]
-// fn test_generate_random_ubigint() {
-//     for i in 1..20 {
-//         let size = i * 64;
-//         let random = generate_random_ubigint(size);
-//         println!("{:x}\n\n\n", random);        
-//     }
-// }
+#[test]
+fn test_generate_random_ubigint() {
+    for i in 1..20 {
+        let size = i * 64;
+        let random = generate_random_ubigint(size);
+        println!("{:x}\n\n\n", random);        
+    }
+}
 
-// #[test]
-// fn test_generate_random_string() {
-//     for len in 1..20 {
-//         let random = generate_random_string(len);
-//         println!("{}\n\n", random);
-//     }
-// }
+#[test]
+fn test_generate_random_string() {
+    for len in 1..20 {
+        let random = generate_random_string(len);
+        println!("{}\n\n", random);
+    }
+}
 
 #[derive(Clone)]
 struct TestCipherPubkey {}
@@ -421,8 +421,9 @@ impl EJPubKey for TestCipherPubkey {
     }
 }
 
+
 #[test]
-fn test_signer_sign() {
+fn test_all() {
     let n = BigUint::from(882323119 as u32);
     let e = BigUint::from(7 as u32);
     let d = BigUint::from(504150583 as u32);
@@ -474,6 +475,10 @@ fn test_signer_sign() {
     println!("complement: {:?}", subset.complement);
 
     sender.set_subset(subset);
+    let check_parameter = sender.clone().generate_check_parameter().unwrap();
+
+    let result = signer.check(check_parameter).unwrap();
+    assert_eq!(result, true);
 
     let sign = signer.sign().unwrap();
     let signature = sender.clone().unblind(sign).unwrap();
@@ -485,73 +490,4 @@ fn test_signer_sign() {
 
     assert_eq!(result, true);
 }
-
-// #[test]
-// fn test_all() {
-//     let n = BigUint::from(41623 as u32);
-//     let e = BigUint::from(11751 as u32);
-//     let d = BigUint::from(7393 as u32);
-//     let primes = [BigUint::from(107 as u32), BigUint::from(389 as u32)].to_vec();
-    
-//     let signer_pubkey = RSAPublicKey::new(n.clone(), e.clone()).unwrap();
-//     let judge_pubkey = TestCipherPubkey {};
-
-//     let parameters = FBSParameters {
-//         signer_pubkey: signer_pubkey,
-//         judge_pubkey: judge_pubkey,
-//         k: 4,
-//         id: 10
-//     };
-
-//     let mut sender = FBSSender::new(parameters.clone());
-//     assert_eq!(sender.parameters.id, 10);
-//     assert_eq!(sender.parameters.k, 4);
-
-
-//     let random_strings = match sender.random_strings.clone() {
-//         Some(random_strings) => random_strings,
-//         None => {
-//             assert_eq!(true, false);
-//             return;
-//         }
-//     };
-
-//     println!("alpha: {}\nbeta: {}\n\n", random_strings.alpha, random_strings.beta);
-
-//     let blinded = sender.blind("hello".to_string());
-//     let result = match blinded.clone() {
-//         Some(_) => true,
-//         None => false
-//     };
-
-//     assert_eq!(result, true);
-
-//     let signer_privkey = RSAPrivateKey::from_components(n, e, d, primes);
-//     let mut signer = FBSSigner::new(parameters.clone(), signer_privkey);
-
-//     assert_eq!(sender.parameters.id, parameters.id);
-//     assert_eq!(sender.parameters.k, parameters.k);
-
-//     signer.set_blinded_digest(sender.blinded_digest.clone().unwrap());
-
-//     let subset = signer.setup_subset();
-//     println!("subset: {:?}", subset.subset);
-//     println!("complement: {:?}", subset.complement);
-
-//     sender.set_subset(subset);
-//     let check_parameter = sender.clone().generate_check_parameter().unwrap();
-
-//     let result = signer.check(check_parameter).unwrap();
-//     assert_eq!(result, true);
-
-//     let sign = signer.sign().unwrap();
-//     let signature = sender.clone().unblind(sign).unwrap();
-
-    // println!("s: {}", signature.s);
-    
-    // let verifyer = FBSVerifyer::new(parameters);
-    // let result = verifyer.verify(signature, "hello".to_string()).unwrap();
-
-    // assert_eq!(result, true);
-    // }
 
