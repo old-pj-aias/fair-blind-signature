@@ -128,6 +128,10 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
         
         subset
     }
+
+    pub fn set_blinded_digest(&mut self, blinded_digest: BlindedDigest) {
+        self.blinded_digest = Some(blinded_digest);
+    }
 }
 
 impl <EJ: EJPubKey>FBSSender<EJ> {
