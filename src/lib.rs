@@ -41,6 +41,11 @@ pub struct EncryptedTraceInfo {
 }
 
 #[derive(Clone)]
+pub struct BlindSignature {
+    b: BigUint
+}
+
+#[derive(Clone)]
 pub struct FBSParameters<EJ: EJPubKey> {
     judge_pubkey: EJ,
     signer_pubkey: RSAPublicKey,
@@ -159,6 +164,26 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
         }
 
         return Some(true);
+    }
+
+    pub fn sign(&self) -> Option<BlindSignature> {
+        let one = BigUint::from(1 as u32);
+        let mut blind_signature = BlindSignature { b: one };
+
+        for complement_index in 0..self.subset.clone()?.complement.len() {
+            let complement_index = complement_index as usize;
+            let all_index = self.subset.clone()?.subset[complement_index] as usize;
+
+
+            let digest = self.blinded_digest.clone()?.m[all_index].clone() % self.parameters.signer_pubkey.n();
+            blind_signature.b *= digest;
+            blind_signature.b %= self.parameters.signer_pubkey.n();
+        }
+
+        blind_signature.b = blind_signature.b.modpow(self.privkey.d(), self.parameters.signer_pubkey.n());
+
+
+        return Some(blind_signature);
     }
 }
 
@@ -355,5 +380,7 @@ fn test_signer_blind() {
 
     let result = signer.check(check_parameter).unwrap();
     assert_eq!(result, true);
+
+    let sign = signer.sign().unwrap();
 }
 
