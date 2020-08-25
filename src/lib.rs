@@ -7,7 +7,7 @@ extern crate num_traits;
 use rand::rngs::OsRng;
 
 
-use rsa::{BigUint, PublicKey, RSAPrivateKey, RSAPublicKey, PaddingScheme, PublicKeyParts};
+use rsa::{BigUint, PublicKey, RSAPrivateKey, RSAPublicKey, PublicKeyParts};
 use std::vec::Vec;
 
 use sha2::{Sha256, Digest};
@@ -28,87 +28,87 @@ pub trait EJPubKey {
 
 #[derive(Clone)]
 pub struct RandomStrings {
-    alpha: String,
-    beta: String
+    pub alpha: String,
+    pub beta: String
 }
 
 #[derive(Clone)]
 pub struct BlindedDigest {
-    m: Vec<BigUint>
+    pub m: Vec<BigUint>
 }
 
 #[derive(Clone)]
 pub struct Unblinder {
-    r: Vec<BigUint>
+    pub r: Vec<BigUint>
 }
 
 #[derive(Clone)]
 pub struct EncryptedMessage {
-    u: Vec<String>
+    pub u: Vec<String>
 }
 
 #[derive(Clone)]
 pub struct EncryptedID {
-    v: Vec<String>
+    pub v: Vec<String>
 }
 
 #[derive(Clone)]
 pub struct BlindSignature {
-    b: BigUint
+    pub b: BigUint
 }
 
 #[derive(Clone)]
 pub struct Signature {
-    s: BigUint,
-    alpha: String,
-    encrypted_id: EncryptedID,
-    subset: Subset
+    pub s: BigUint,
+    pub alpha: String,
+    pub encrypted_id: EncryptedID,
+    pub subset: Subset
 }
 
 #[derive(Clone)]
 pub struct FBSParameters<EJ: EJPubKey> {
-    judge_pubkey: EJ,
-    signer_pubkey: RSAPublicKey,
-    k: u32,
-    id: u32
+    pub judge_pubkey: EJ,
+    pub signer_pubkey: RSAPublicKey,
+    pub k: u32,
+    pub id: u32
 }
 
 #[derive(Clone)]
 pub struct FBSSender<EJ: EJPubKey> {
-    parameters: FBSParameters<EJ>,
-    random_strings: Option<RandomStrings>,
-    blinded_digest: Option<BlindedDigest>,
-    unblinder: Option<Unblinder>,
-    encrypted_message: Option<EncryptedMessage>,
-    encrypted_id:  Option<EncryptedID>,
-    subset: Option<Subset>
+    pub parameters: FBSParameters<EJ>,
+    pub random_strings: Option<RandomStrings>,
+    pub blinded_digest: Option<BlindedDigest>,
+    pub unblinder: Option<Unblinder>,
+    pub encrypted_message: Option<EncryptedMessage>,
+    pub encrypted_id:  Option<EncryptedID>,
+    pub subset: Option<Subset>
 }
 
 #[derive(Clone)]
 pub struct Subset {
-    subset: Vec<u32>,
-    complement: Vec<u32>
+    pub subset: Vec<u32>,
+    pub complement: Vec<u32>
 }
 
 #[derive(Clone)]
 pub struct CheckParameter {
-    part_of_encrypted_message: EncryptedMessage,
-    part_of_unblinder: Unblinder,
-    part_of_beta: Vec<u8>
+    pub part_of_encrypted_message: EncryptedMessage,
+    pub part_of_unblinder: Unblinder,
+    pub part_of_beta: Vec<u8>
 }
 
 #[derive(Clone)]
 pub struct FBSSigner<EJ: EJPubKey> {
-    parameters: FBSParameters<EJ>,
-    blinded_digest: Option<BlindedDigest>,
-    subset: Option<Subset>,
-    check: Option<CheckParameter>,
-    privkey: RSAPrivateKey
+    pub parameters: FBSParameters<EJ>,
+    pub blinded_digest: Option<BlindedDigest>,
+    pub subset: Option<Subset>,
+    pub check: Option<CheckParameter>,
+    pub privkey: RSAPrivateKey
 }
 
 #[derive(Clone)]
 pub struct FBSVerifyer<EJ: EJPubKey> {
-    parameters: FBSParameters<EJ>
+    pub parameters: FBSParameters<EJ>
 }
 
 fn generate_random_ubigint(size: usize) -> BigUint {
