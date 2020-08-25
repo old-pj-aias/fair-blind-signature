@@ -389,7 +389,7 @@ impl <EJ: EJPubKey>FBSVerifyer<EJ>{
             s %= self.parameters.signer_pubkey.n();
         }
 
-        return Some(true);
+        return Some(s == s_e);
     }
 }
 
