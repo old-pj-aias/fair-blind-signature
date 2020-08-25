@@ -5,6 +5,7 @@ extern crate num_bigint_dig as num_bigint;
 extern crate num_traits;
 
 use rand::rngs::OsRng;
+use serde::{Serialize, Deserialize};
 
 
 use rsa::{BigUint, PublicKey, RSAPrivateKey, RSAPublicKey, PublicKeyParts};
@@ -26,38 +27,38 @@ pub trait EJPubKey {
     fn dencrypt(&self, message: String) -> String;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct RandomStrings {
     pub alpha: String,
     pub beta: String
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BlindedDigest {
     pub m: Vec<BigUint>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Unblinder {
     pub r: Vec<BigUint>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct EncryptedMessage {
     pub u: Vec<String>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct EncryptedID {
     pub v: Vec<String>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BlindSignature {
     pub b: BigUint
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Signature {
     pub s: BigUint,
     pub alpha: String,
@@ -84,20 +85,19 @@ pub struct FBSSender<EJ: EJPubKey> {
     pub subset: Option<Subset>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Subset {
     pub subset: Vec<u32>,
     pub complement: Vec<u32>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CheckParameter {
     pub part_of_encrypted_message: EncryptedMessage,
     pub part_of_unblinder: Unblinder,
     pub part_of_beta: Vec<u8>
 }
 
-#[derive(Clone)]
 pub struct FBSSigner<EJ: EJPubKey> {
     pub parameters: FBSParameters<EJ>,
     pub blinded_digest: Option<BlindedDigest>,
@@ -106,7 +106,6 @@ pub struct FBSSigner<EJ: EJPubKey> {
     pub privkey: RSAPrivateKey
 }
 
-#[derive(Clone)]
 pub struct FBSVerifyer<EJ: EJPubKey> {
     pub parameters: FBSParameters<EJ>
 }
