@@ -106,6 +106,7 @@ pub struct FBSSigner<EJ: EJPubKey> {
     pub privkey: RSAPrivateKey
 }
 
+#[derive(Clone)]
 pub struct FBSVerifyer<EJ: EJPubKey> {
     pub parameters: FBSParameters<EJ>
 }
