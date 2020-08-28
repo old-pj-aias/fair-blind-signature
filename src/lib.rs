@@ -23,8 +23,11 @@ const DEFALT_SIZE: usize = 256;
 
 
 pub trait EJPubKey {
-    fn encrypt(&self, message: String) -> String;
-    fn dencrypt(&self, message: String) -> String;
+    fn encrypt(&self, plain: String) -> String;
+}
+
+pub trait EJPrivKey {
+    fn decrypt(&self, cipher: String) -> String;
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -413,15 +416,21 @@ fn test_generate_random_string() {
 #[derive(Clone)]
 struct TestCipherPubkey {}
 
+#[derive(Clone)]
+struct TestCipherPrivkey {}
+
 impl EJPubKey for TestCipherPubkey {
     fn encrypt(&self, message: String) -> String {
         return message;
     }
+}
 
-    fn dencrypt(&self, message: String) -> String {
+impl EJPrivKey for TestCipherPrivkey {
+    fn decrypt(&self, message: String) -> String {
         return message;
     }
 }
+
 
 
 #[test]
