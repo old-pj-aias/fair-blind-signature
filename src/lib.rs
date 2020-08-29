@@ -294,13 +294,13 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         self.subset = Some(subset);
     }
 
-    pub fn generate_check_parameter(self) -> Option<CheckParameter>{
+    pub fn generate_check_parameter(&self) -> Option<CheckParameter>{
         let mut u = Vec::new();
         let mut r = Vec::new();
         let mut beta = Vec::new();
 
-        let all_u = self.encrypted_message?.u;
-        let all_r = self.unblinder?.r;
+        let all_u = &self.encrypted_message.as_ref()?.u;
+        let all_r = &self.unblinder.as_ref()?.r;
 
         let beta_bytes = self.random_strings.as_ref()?.beta.as_bytes();
 
@@ -324,7 +324,7 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         })
     }
 
-    pub fn unblind(self, blind_signature: BlindSignature) -> Option<Signature> {
+    pub fn unblind(&self, blind_signature: BlindSignature) -> Option<Signature> {
         let b = blind_signature.b.clone();
         let mut r = BigUint::from(1 as u32);
 
@@ -351,9 +351,9 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
 
         Some(Signature {
             s: s,
-            alpha: self.random_strings?.alpha,
-            encrypted_id: self.encrypted_id?,
-            subset: self.subset?
+            alpha: self.random_strings.clone()?.alpha,
+            encrypted_id: self.encrypted_id.clone()?,
+            subset: self.subset.clone()?
         })
     }
 }
@@ -367,7 +367,7 @@ impl <EJ: EJPubKey>FBSVerifyer<EJ>{
         }
     }
 
-    pub fn verify(self, signature: Signature, message: String) -> Option<bool> {
+    pub fn verify(&self, signature: Signature, message: String) -> Option<bool> {
         let s_e = signature.s.modpow(self.parameters.signer_pubkey.e(), self.parameters.signer_pubkey.n());
 
         let alpha = signature.alpha.as_bytes();
