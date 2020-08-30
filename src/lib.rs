@@ -30,6 +30,10 @@ pub trait EJPrivKey {
     fn decrypt(&self, cipher: String) -> String;
 }
 
+pub struct Judge<EJ: EJPrivKey> {
+    pub privateKey: EJ
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RandomStrings {
     pub alpha: String,
@@ -425,6 +429,25 @@ fn test_generate_random_string() {
     }
 }
 
+impl <EJ: EJPrivKey>Judge<EJ> {
+    pub fn new(privkey :EJ) -> Self {
+        return Self {
+            privateKey: privkey
+        }
+    }
+
+    pub fn open(&self, encrypted_id: EncryptedID) -> Vec<String> {
+        let mut result = Vec::new();
+
+        for v in encrypted_id.v {
+            let decrypted = self.privateKey.decrypt(v);
+            result.push(decrypted);
+        }
+
+        return result;
+    }
+}
+
 #[derive(Clone)]
 struct TestCipherPubkey {}
 
@@ -454,6 +477,7 @@ fn test_all() {
 
     let signer_pubkey = RSAPublicKey::new(n.clone(), e.clone()).unwrap();
     let judge_pubkey = TestCipherPubkey {};
+    let judge_privkey = TestCipherPrivkey {};
 
     let parameters = FBSParameters {
         signer_pubkey: signer_pubkey,
@@ -509,9 +533,15 @@ fn test_all() {
     println!("s: {}", signature.s);
 
     let verifyer = FBSVerifyer::new(parameters);
-    let result = verifyer.verify(signature, "hello".to_string());
+    let result = verifyer.verify(signature.clone(), "hello".to_string());
 
     assert_eq!(result, true);
+
+    let judge = Judge::new(judge_privkey);
+    let result = judge.open(signature.encrypted_id);
+
+    assert_eq!(result[0].as_bytes()[0], "1".as_bytes()[0]);
+    assert_eq!(result[0].as_bytes()[1], "0".as_bytes()[0]);
 }
 
 
@@ -523,6 +553,7 @@ fn test_speed() {
     let signer_pubkey = RSAPublicKey::from(&signer_privkey);
 
     let judge_pubkey = TestCipherPubkey {};
+    let judge_privkey = TestCipherPrivkey {};
 
     let parameters = FBSParameters {
         signer_pubkey: signer_pubkey,
@@ -577,8 +608,14 @@ fn test_speed() {
     println!("s: {}", signature.s);
     
     let verifyer = FBSVerifyer::new(parameters);
-    let result = verifyer.verify(signature, "hello".to_string());
+    let result = verifyer.verify(signature.clone(), "hello".to_string());
 
     assert_eq!(result, true);
+
+    let judge = Judge::new(judge_privkey);
+    let result = judge.open(signature.encrypted_id);
+
+    assert_eq!(result[0].as_bytes()[0], "1".as_bytes()[0]);
+    assert_eq!(result[0].as_bytes()[1], "0".as_bytes()[0]);
 }
 
