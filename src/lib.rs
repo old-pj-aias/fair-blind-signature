@@ -23,8 +23,15 @@ const DEFALT_SIZE: usize = 256;
 
 
 pub trait EJPubKey {
-    fn encrypt(&self, message: String) -> String;
-    fn dencrypt(&self, message: String) -> String;
+    fn encrypt(&self, plain: String) -> String;
+}
+
+pub trait EJPrivKey {
+    fn decrypt(&self, cipher: String) -> String;
+}
+
+pub struct Judge<EJ: EJPrivKey> {
+    pub privateKey: EJ
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -168,10 +175,17 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
         self.blinded_digest = Some(blinded_digest);
     }
 
-    pub fn check(&self, check_parameter: CheckParameter) -> Option<bool> {
-        for subset_index in 0..self.subset.clone()?.subset.len() - 1{
+    pub fn check(&self, check_parameter: CheckParameter) -> bool {
+        let subset = match &self.subset {
+            Some(subset) => &subset.subset,
+            None => return false,
+        };
+
+        let l = subset.len() - 1;
+
+        for subset_index in 0..l {
             let subset_index = subset_index as usize;
-            let all_index = self.subset.clone()?.subset[subset_index] as usize;
+            let all_index = subset[subset_index] as usize;
 
             let v_i = format!("{}{}", self.parameters.id, check_parameter.part_of_beta[subset_index]);
             let v_i = self.parameters.judge_pubkey.encrypt(v_i);
@@ -186,13 +200,18 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
             let h_i = BigUint::from_bytes_le(&h_i);
 
             let m_i = r_e_i * h_i % self.parameters.signer_pubkey.n();
-            
-            if m_i != self.blinded_digest.clone()?.m[all_index] {
-                return Some(false);
+
+            let blinded_digest = match &self.blinded_digest {
+                Some(blinded_digest) => blinded_digest,
+                None => return false
+            };
+
+            if m_i != blinded_digest.m[all_index] {
+                return false;
             }
         }
 
-        return Some(true);
+        return true;
     }
 
     pub fn sign(&self) -> Option<BlindSignature> {
@@ -291,13 +310,13 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         self.subset = Some(subset);
     }
 
-    pub fn generate_check_parameter(self) -> Option<CheckParameter>{
+    pub fn generate_check_parameter(&self) -> Option<CheckParameter>{
         let mut u = Vec::new();
         let mut r = Vec::new();
         let mut beta = Vec::new();
 
-        let all_u = self.encrypted_message?.u;
-        let all_r = self.unblinder?.r;
+        let all_u = &self.encrypted_message.as_ref()?.u;
+        let all_r = &self.unblinder.as_ref()?.r;
 
         let beta_bytes = self.random_strings.as_ref()?.beta.as_bytes();
 
@@ -321,7 +340,7 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         })
     }
 
-    pub fn unblind(self, blind_signature: BlindSignature) -> Option<Signature> {
+    pub fn unblind(&self, blind_signature: BlindSignature) -> Option<Signature> {
         let b = blind_signature.b.clone();
         let mut r = BigUint::from(1 as u32);
 
@@ -348,9 +367,9 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
 
         Some(Signature {
             s: s,
-            alpha: self.random_strings?.alpha,
-            encrypted_id: self.encrypted_id?,
-            subset: self.subset?
+            alpha: self.random_strings.clone()?.alpha,
+            encrypted_id: self.encrypted_id.clone()?,
+            subset: self.subset.clone()?
         })
     }
 }
@@ -364,7 +383,7 @@ impl <EJ: EJPubKey>FBSVerifyer<EJ>{
         }
     }
 
-    pub fn verify(self, signature: Signature, message: String) -> Option<bool> {
+    pub fn verify(&self, signature: Signature, message: String) -> bool {
         let s_e = signature.s.modpow(self.parameters.signer_pubkey.e(), self.parameters.signer_pubkey.n());
 
         let alpha = signature.alpha.as_bytes();
@@ -374,7 +393,7 @@ impl <EJ: EJPubKey>FBSVerifyer<EJ>{
         for complement_index in 0..signature.subset.complement.len() - 1 {
             let complement_index = complement_index as usize;
             let all_index = signature.subset.subset[complement_index] as usize;
-            
+
             let u_i = format!("{}{}", message, alpha[all_index as usize]);
             let u_i = self.parameters.judge_pubkey.encrypt(u_i);
 
@@ -389,7 +408,7 @@ impl <EJ: EJPubKey>FBSVerifyer<EJ>{
             s %= self.parameters.signer_pubkey.n();
         }
 
-        return Some(s == s_e);
+        return s == s_e;
     }
 }
 
@@ -398,7 +417,7 @@ fn test_generate_random_ubigint() {
     for i in 1..20 {
         let size = i * 64;
         let random = generate_random_ubigint(size);
-        println!("{:x}\n\n\n", random);        
+        println!("{:x}\n\n\n", random);
     }
 }
 
@@ -410,18 +429,43 @@ fn test_generate_random_string() {
     }
 }
 
+impl <EJ: EJPrivKey>Judge<EJ> {
+    pub fn new(privkey :EJ) -> Self {
+        return Self {
+            privateKey: privkey
+        }
+    }
+
+    pub fn open(&self, encrypted_id: EncryptedID) -> Vec<String> {
+        let mut result = Vec::new();
+
+        for v in encrypted_id.v {
+            let decrypted = self.privateKey.decrypt(v);
+            result.push(decrypted);
+        }
+
+        return result;
+    }
+}
+
 #[derive(Clone)]
 struct TestCipherPubkey {}
+
+#[derive(Clone)]
+struct TestCipherPrivkey {}
 
 impl EJPubKey for TestCipherPubkey {
     fn encrypt(&self, message: String) -> String {
         return message;
     }
+}
 
-    fn dencrypt(&self, message: String) -> String {
+impl EJPrivKey for TestCipherPrivkey {
+    fn decrypt(&self, message: String) -> String {
         return message;
     }
 }
+
 
 
 #[test]
@@ -430,9 +474,10 @@ fn test_all() {
     let e = BigUint::from(7 as u32);
     let d = BigUint::from(504150583 as u32);
     let primes = [BigUint::from(27409 as u32), BigUint::from(32191 as u32)].to_vec();
-    
+
     let signer_pubkey = RSAPublicKey::new(n.clone(), e.clone()).unwrap();
     let judge_pubkey = TestCipherPubkey {};
+    let judge_privkey = TestCipherPrivkey {};
 
     let parameters = FBSParameters {
         signer_pubkey: signer_pubkey,
@@ -479,18 +524,24 @@ fn test_all() {
     sender.set_subset(subset);
     let check_parameter = sender.clone().generate_check_parameter().unwrap();
 
-    let result = signer.check(check_parameter).unwrap();
+    let result = signer.check(check_parameter);
     assert_eq!(result, true);
 
     let sign = signer.sign().unwrap();
     let signature = sender.clone().unblind(sign).unwrap();
 
     println!("s: {}", signature.s);
-    
+
     let verifyer = FBSVerifyer::new(parameters);
-    let result = verifyer.verify(signature, "hello".to_string()).unwrap();
+    let result = verifyer.verify(signature.clone(), "hello".to_string());
 
     assert_eq!(result, true);
+
+    let judge = Judge::new(judge_privkey);
+    let result = judge.open(signature.encrypted_id);
+
+    assert_eq!(result[0].as_bytes()[0], "1".as_bytes()[0]);
+    assert_eq!(result[0].as_bytes()[1], "0".as_bytes()[0]);
 }
 
 
@@ -502,6 +553,7 @@ fn test_speed() {
     let signer_pubkey = RSAPublicKey::from(&signer_privkey);
 
     let judge_pubkey = TestCipherPubkey {};
+    let judge_privkey = TestCipherPrivkey {};
 
     let parameters = FBSParameters {
         signer_pubkey: signer_pubkey,
@@ -547,7 +599,7 @@ fn test_speed() {
     sender.set_subset(subset);
     let check_parameter = sender.clone().generate_check_parameter().unwrap();
 
-    let result = signer.check(check_parameter).unwrap();
+    let result = signer.check(check_parameter);
     assert_eq!(result, true);
 
     let sign = signer.sign().unwrap();
@@ -556,8 +608,14 @@ fn test_speed() {
     println!("s: {}", signature.s);
     
     let verifyer = FBSVerifyer::new(parameters);
-    let result = verifyer.verify(signature, "hello".to_string()).unwrap();
+    let result = verifyer.verify(signature.clone(), "hello".to_string());
 
     assert_eq!(result, true);
+
+    let judge = Judge::new(judge_privkey);
+    let result = judge.open(signature.encrypted_id);
+
+    assert_eq!(result[0].as_bytes()[0], "1".as_bytes()[0]);
+    assert_eq!(result[0].as_bytes()[1], "0".as_bytes()[0]);
 }
 
