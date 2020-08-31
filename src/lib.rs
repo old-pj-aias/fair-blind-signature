@@ -132,6 +132,33 @@ fn generate_random_string(len: usize) -> String {
 }
 
 
+
+impl Subset {
+    pub fn new(k: u32) -> Self {
+        let mut all : Vec<u32> = (1..=(2 * k)).collect();
+
+        let mut complement = Vec::new();
+
+        let mut rng = thread_rng();
+        let mut subset : Vec<u32> = all.choose_multiple(&mut rng, k as usize).cloned().collect();
+        subset.sort();
+
+        for i in all.clone() {
+            match subset.binary_search(&i) {
+                Ok(_) => (),
+                Err(_) => {
+                    complement.push(i);
+                }
+            };
+        }
+
+        Subset {
+            complement,
+            subset
+        }
+    }
+}
+
 impl <EJ: EJPubKey>FBSSigner<EJ> {
     pub fn new(parameters: FBSParameters<EJ>, privkey: RSAPrivateKey) -> FBSSigner<EJ>{
         FBSSigner { 
@@ -144,30 +171,8 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
     }
 
     pub fn setup_subset(&mut self) -> Subset { 
-        let mut all : Vec<u32> = (1..(2 * self.parameters.k + 1)).map(|x: u32| x).collect();
-
-        let mut complement = Vec::new();
-
-        let mut rng = thread_rng();
-        let mut subset : Vec<u32> = all.choose_multiple(&mut rng, self.parameters.k as usize).cloned().collect();
-        subset.sort();
-
-        for i in all.clone() {
-            match subset.binary_search(&i) {
-                Ok(_) => {}
-                Err(_) => {
-                    complement.push(i);
-                }
-            };
-        }
-
-        let subset = Subset {
-            complement: complement,
-            subset: subset
-        };
-
+        let subset = Subset::new(self.parameters.k);
         self.subset = Some(subset.clone());
-        
         subset
     }
 
@@ -606,7 +611,7 @@ fn test_speed() {
     let signature = sender.clone().unblind(sign).unwrap();
 
     println!("s: {}", signature.s);
-    
+
     let verifyer = FBSVerifyer::new(parameters);
     let result = verifyer.verify(signature.clone(), "hello".to_string());
 
@@ -618,4 +623,3 @@ fn test_speed() {
     assert_eq!(result[0].as_bytes()[0], "1".as_bytes()[0]);
     assert_eq!(result[0].as_bytes()[1], "0".as_bytes()[0]);
 }
-
