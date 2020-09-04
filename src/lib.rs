@@ -187,12 +187,12 @@ impl <EJ: EJPubKey>FBSSigner<EJ> {
             let subset_index = subset_index as usize;
             let all_index = subset[subset_index] as usize;
 
-            let v_i = format!("{}{}", self.parameters.id, check_parameter.part_of_beta[subset_index]);
+            let v_i = format!("{}:{}", self.parameters.id, check_parameter.part_of_beta[subset_index]);
             let v_i = self.parameters.judge_pubkey.encrypt(v_i);
 
             let r_e_i = check_parameter.part_of_unblinder.r[subset_index].modpow(self.parameters.signer_pubkey.e(), self.parameters.signer_pubkey.n());
 
-            let h_i = format!("{}{}", check_parameter.part_of_encrypted_message.u[subset_index], v_i);
+            let h_i = format!("{}:{}", check_parameter.part_of_encrypted_message.u[subset_index], v_i);
 
             let mut hasher = Sha256::new();
             hasher.update(h_i);
@@ -270,15 +270,15 @@ impl <EJ: EJPubKey>FBSSender<EJ> {
         for i in 0..len {
             let r_i = generate_random_ubigint(DEFALT_SIZE);
             
-            let u_i = format!("{}{}", message, alpha[i as usize]);
+            let u_i = format!("{}:{}", message, alpha[i as usize]);
             let u_i = self.parameters.judge_pubkey.encrypt(u_i);
 
-            let v_i = format!("{}{}", self.parameters.id, beta[i as usize]);
+            let v_i = format!("{}:{}", self.parameters.id, beta[i as usize]);
             let v_i = self.parameters.judge_pubkey.encrypt(v_i);
 
             let r_e_i = r_i.modpow(self.parameters.signer_pubkey.e(), self.parameters.signer_pubkey.n());
 
-            let h_i = format!("{}{}", u_i, v_i);
+            let h_i = format!("{}:{}", u_i, v_i);
 
             let mut hasher = Sha256::new();
             hasher.update(h_i);
@@ -394,10 +394,10 @@ impl <EJ: EJPubKey>FBSVerifyer<EJ>{
             let complement_index = complement_index as usize;
             let all_index = signature.subset.subset[complement_index] as usize;
 
-            let u_i = format!("{}{}", message, alpha[all_index as usize]);
+            let u_i = format!("{}:{}", message, alpha[all_index as usize]);
             let u_i = self.parameters.judge_pubkey.encrypt(u_i);
 
-            let h_i = format!("{}{}", u_i, signature.encrypted_id.v[all_index]);
+            let h_i = format!("{}:{}", u_i, signature.encrypted_id.v[all_index]);
 
             let mut hasher = Sha256::new();
             hasher.update(h_i);
@@ -436,16 +436,12 @@ impl <EJ: EJPrivKey>Judge<EJ> {
         }
     }
 
-    pub fn open(&self, encrypted_id: EncryptedID) -> Vec<String> {
-        let mut result = Vec::new();
+    pub fn open(&self, encrypted_id: EncryptedID) -> String {
+        let result = self.privateKey.decrypt(encrypted_id.v[0].clone());
+        let result: Vec<&str>  = result.split(":").collect();
 
-        for v in encrypted_id.v {
-            let decrypted = self.privateKey.decrypt(v);
-            result.push(decrypted);
-        }
-
-        return result;
-    }
+        return result[0].to_string();
+    }   
 }
 
 #[derive(Clone)]
@@ -540,8 +536,7 @@ fn test_all() {
     let judge = Judge::new(judge_privkey);
     let result = judge.open(signature.encrypted_id);
 
-    assert_eq!(result[0].as_bytes()[0], "1".as_bytes()[0]);
-    assert_eq!(result[0].as_bytes()[1], "0".as_bytes()[0]);
+    assert_eq!(result, "10");
 }
 
 
@@ -615,7 +610,6 @@ fn test_speed() {
     let judge = Judge::new(judge_privkey);
     let result = judge.open(signature.encrypted_id);
 
-    assert_eq!(result[0].as_bytes()[0], "1".as_bytes()[0]);
-    assert_eq!(result[0].as_bytes()[1], "0".as_bytes()[0]);
+    assert_eq!(result, "10");
 }
 
