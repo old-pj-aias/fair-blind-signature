@@ -1,4 +1,3 @@
-
 pub trait EJPubKey {
     fn encrypt(&self, plain: String) -> String;
 }
@@ -10,4 +9,3 @@ pub trait EJPrivKey {
 pub struct Judge<EJ: EJPrivKey> {
     pub privateKey: EJ
 }
-

@@ -4,10 +4,9 @@ extern crate rsa;
 extern crate num_bigint_dig as num_bigint;
 extern crate num_traits;
 
-use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 
-use rsa::{BigUint, PublicKey, PublicKeyParts, RSAPrivateKey, RSAPublicKey};
+use rsa::{BigUint, PublicKeyParts, RSAPrivateKey, RSAPublicKey};
 use std::vec::Vec;
 
 use sha2::{Digest, Sha256};
@@ -29,7 +28,7 @@ pub trait EJPrivKey {
 }
 
 pub struct Judge<EJ: EJPrivKey> {
-    pub privateKey: EJ,
+    pub private_key: EJ,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -138,7 +137,7 @@ impl<EJ: EJPubKey> FBSSigner<EJ> {
     }
 
     pub fn setup_subset(&mut self) -> Subset {
-        let mut all: Vec<u32> = (1..(2 * self.parameters.k + 1)).map(|x: u32| x).collect();
+        let all: Vec<u32> = (1..(2 * self.parameters.k + 1)).map(|x: u32| x).collect();
 
         let mut complement = Vec::new();
 
@@ -448,12 +447,12 @@ fn test_generate_random_string() {
 impl<EJ: EJPrivKey> Judge<EJ> {
     pub fn new(privkey: EJ) -> Self {
         return Self {
-            privateKey: privkey,
+            private_key: privkey,
         };
     }
 
     pub fn open(&self, encrypted_id: EncryptedID) -> String {
-        let result = self.privateKey.decrypt(encrypted_id.v[0].clone());
+        let result = self.private_key.decrypt(encrypted_id.v[0].clone());
         let result: Vec<&str> = result.split(":").collect();
 
         return result[0].to_string();
@@ -557,6 +556,7 @@ fn test_all() {
 
 #[test]
 fn test_speed() {
+    use rand::rngs::OsRng;
     let mut rng = OsRng;
     let bits = 2048;
     let signer_privkey = RSAPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
