@@ -1,26 +1,17 @@
-pub mod errors;
-pub mod judge;
+mod errors;
+mod judge;
 pub use errors::*;
 pub use judge::*;
-
-extern crate rand;
-extern crate rsa;
-
-extern crate num_bigint_dig as num_bigint;
-extern crate num_traits;
-
-use serde::{Deserialize, Serialize};
-
-use rsa::{BigUint, PublicKeyParts, RSAPrivateKey, RSAPublicKey};
-use std::vec::Vec;
-
-use sha2::{Digest, Sha256};
 
 use rand::distributions::{Alphanumeric, Standard};
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 
 use num_bigint_dig::traits::ModInverse;
+use num_bigint_dig::BigUint as NumBigUint;
+use rsa::{BigUint, PublicKeyParts, RSAPrivateKey, RSAPublicKey};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 const DEFALT_SIZE: usize = 256;
 
@@ -367,10 +358,10 @@ impl<EJ: EJPubKey> FBSSender<EJ> {
             r %= self.parameters.signer_pubkey.n();
         }
 
-        let biguint_r = num_bigint::BigUint::from_bytes_le(&r.to_bytes_le());
+        let biguint_r = NumBigUint::from_bytes_le(&r.to_bytes_le());
 
         let biguint_n = self.parameters.signer_pubkey.n().to_bytes_le();
-        let biguint_n = num_bigint::BigUint::from_bytes_le(&biguint_n);
+        let biguint_n = NumBigUint::from_bytes_le(&biguint_n);
 
         let r_inverse = biguint_r.mod_inverse(biguint_n)?;
         let (_, r_inverse) = &r_inverse.to_bytes_le();
